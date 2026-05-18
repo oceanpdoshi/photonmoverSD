@@ -4,11 +4,9 @@ from photonmover.Interfaces.Laser import TunableLaser
 from photonmover.Interfaces.Instrument import Instrument
 import matplotlib.pyplot as plt
 
-SANTEC_TSL550_GPIB_ADDRESS = 28
+SANTEC_TSL550_GPIB_ADDRESS = 13
 
 # Tunable Laser Source
-
-
 class SantecTSL550(Instrument, TunableLaser):
 
     def __init__(self, gpib_address=SANTEC_TSL550_GPIB_ADDRESS, wait=0.5):
@@ -20,7 +18,7 @@ class SantecTSL550(Instrument, TunableLaser):
 
         print('Opening connnection to Santec TSL550 laser')
         rm = visa.ResourceManager()
-        self.gpib = rm.open_resource("GPIB1::%d" % (self.gpib_address))
+        self.gpib = rm.open_resource("GPIB0::%d" % (self.gpib_address))
 
         # Stop any measurements that it may currently doing
         if int(self.gpib.query_ascii_values("SOUR:WAV:SWE:STAT?")[0]) != 1:
@@ -31,7 +29,7 @@ class SantecTSL550(Instrument, TunableLaser):
         self.disable_input_trigger()
 
         # Turn on laser
-        self.turn_on_LD()
+        # self.turn_on_LD()
 
     def close(self):
         print('Closing connnection to Santec laser')
@@ -121,7 +119,7 @@ class SantecTSL550(Instrument, TunableLaser):
     def stop_sweep(self):
         self.gpib.write("SOUR:WAV:SWE:STAT 0")
 
-    # Starts conrinuous sweep
+    # Starts continous sweep
     def start_cont_sweep(self):
         self.gpib.write("SOUR:WAV:SWE:REP")
 

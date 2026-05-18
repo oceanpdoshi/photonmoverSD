@@ -31,22 +31,33 @@ class NiDAQ(Instrument):
     def start_task(self):
         self.task.start()
 
+    def stop_task(self):
+        self.task.stop()
+
+    def close_task(self):
+        if self.task is not None:
+            self.task.close()
+            self.task = None
+
     def wait_task(self, timeout=200):
         self.task.wait_until_done(timeout=timeout)  # timeout is in seconds
 
     def read_data(self, num_points):
         data = self.task.read(number_of_samples_per_channel=num_points)
         self.task.stop()
+        self.task.close()
         return data
 
     def configure_nsampl_acq(
-            self,
-            input_channels,
-            clk_channel=None,
-            num_points=2,
-            max_sampling_freq=1000,
-            min_vals=None,
-            max_vals=None):
+        self,
+        input_channels,
+        clk_channel=None,
+        num_points=2,
+        max_sampling_freq=1000,
+        min_vals=None,
+        max_vals=None,
+        trig_channel=None,
+        trig_level=1.65):
         """
         Creates a DAQ task to acquire voltage at the specified analog input channels. Specify the number of points to
         be acquired and teh clock reference. If None, the internal clock of the board is used.
@@ -56,6 +67,8 @@ class NiDAQ(Instrument):
         :param max_sampling_freq: Maximum sampling frequency (in samples per second)
         :param min_vals: Min voltage value to measure. If None, we will assume it is 0. Either a list for each channel or a single number (all channels the same)
         :param max_vals: Max voltage value to measure. If None, we will assume it is 2.0. Either a list for each channel or a single number (all channels the same)
+        :param trig_channel: Analog trigger channel (e.g., "Dev1/ai7"). If None, no trigger is used
+        :param trig_level: Analog trigger threshold level (V). Defaults to 1.65V (half of 3.3V)
         :return:
         """
         if self.task is not None:
@@ -84,6 +97,13 @@ class NiDAQ(Instrument):
             source=clk_channel,
             active_edge=nidaqmx.constants.Edge.FALLING,
             samps_per_chan=num_points)
+        
+        # Add analog edge trigger if specified
+        if trig_channel is not None:
+            self.task.triggers.start_trigger.cfg_anlg_edge_start_trig(
+                trig_channel,
+                trigger_level=trig_level,
+                trigger_slope=nidaqmx.constants.Slope.RISING)
 
     def configure_channel_acq(self, input_channels, min_vals, max_vals):
         """
