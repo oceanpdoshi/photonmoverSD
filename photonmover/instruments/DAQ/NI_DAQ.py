@@ -57,7 +57,8 @@ class NiDAQ(Instrument):
         min_vals=None,
         max_vals=None,
         trig_channel=None,
-        trig_level=1.65):
+        trig_level=1.65,
+        terminal_config=nidaqmx.constants.TerminalConfiguration.DIFF):
         """
         Creates a DAQ task to acquire voltage at the specified analog input channels. Specify the number of points to
         be acquired and teh clock reference. If None, the internal clock of the board is used.
@@ -90,7 +91,8 @@ class NiDAQ(Instrument):
         self.task = nidaqmx.Task()
         for i, in_channel in enumerate(input_channels):
             self.task.ai_channels.add_ai_voltage_chan(
-                in_channel, min_val=min_vals[i], max_val=max_vals[i])
+                in_channel, min_val=min_vals[i], max_val=max_vals[i],
+                terminal_config=terminal_config)
 
         self.task.timing.cfg_samp_clk_timing(
             max_sampling_freq,
