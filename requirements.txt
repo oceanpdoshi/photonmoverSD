@@ -5,7 +5,7 @@ kiwisolver==1.4.4
 matplotlib==3.6.0
 nidaqmx==0.6.4
 numpy==1.23.3
-packaging==21.3
+packaging>=21.3
 Pillow==9.2.0
 pyparsing==3.0.9
 pypylon==1.8.0
