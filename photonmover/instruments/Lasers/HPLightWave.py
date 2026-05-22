@@ -11,7 +11,7 @@ import math
 
 HP_ADDR = "GPIB1::20::INSTR"
 DEFAULT_INTEGRATION_TIME = 0.05
-SWEEP_DWELL_TIME = 0.4  # Time to sleep at each wavelength when we do a
+SWEEP_DWELL_TIME = 0.4  # Time to sleep at each wavelength when we do a stepped sweep...
 # tx curve by setting each wavelength at a time (in s)
 
 
@@ -28,7 +28,6 @@ class HPLightWave(Instrument, TunableLaser, PowerMeter):
             source_channel: int = 1,):
         """
         Control interface for HP/Agilent/Keysight lightwave Mainframe-type lasers.
-
         
         Args:
             tap_channel
@@ -39,7 +38,7 @@ class HPLightWave(Instrument, TunableLaser, PowerMeter):
             sweep_dwell_time:
             source_channel: Which laser output to use. Channel 1 is the 
                             low-power, low-noise output, Channel 2 is 
-                            higher-power, higer-noise
+                            higher-power, higer-noise (broken on our unit).
         """
         super().__init__()
 
@@ -223,9 +222,71 @@ class HPLightWave(Instrument, TunableLaser, PowerMeter):
                 "SENS%d:POW:RANG %dDBM" %
                 (channel, int(power_range)))
 
+    def get_laser_pow_units(self):
+        """
+        Gets the power units of the lasers
+        :return: The power units of the laser
+            1.0 -> W
+            0.0 -> dBm
+        """
+        return self.lwmain.query_ascii_values(':SOUR0:POW:UNIT?')
+    
+    def set_laser_pow_units(self, units):
+        """
+        Sets the power units of the laser
+        :param units: The power units to set
+            1.0 -> W
+            0.0 -> dBm
+        """
+        if units == 1.0:
+            self.lwmain.write(':SOUR0:POW:UNIT W')
+        elif units == 0.0:
+            self.lwmain.write(':SOUR0:POW:UNIT DBM')
+        else:
+            raise ValueError("Invalid power unit. Use 1.0 for W or 0.0 for dBm.")
+
+
     def start_sweep(self):
         self.lwmain.write("WAV:SWE START")
 
+    def configure_continuous_sweep(self, sweep_start=1470.0, sweep_end=1580.0, sweep_speed=0.5, step_width=0.001, cycles=1, power=110e-3):
+        """
+        Configures the laser for a continuous wavelength sweep
+        :param sweep_start: Start wavelength (nm) - can possibly set to lower wavelengths, but power drops off and the mainframe freezes at 1460.0nm.
+            Mainframe doesn't appear to need to settle for ~1 minute after each sweep if sweep_start=1470.0nm.
+        :param sweep_end: End wavelength (nm) - default value appears to work without forcing the HP to enter "settling" mode for ~1 minute after sweep.
+            The max allowable value on the manual display is 1583.9897 nm.
+
+        :param sweep_speed: Sweep speed (nm/s) - see note below for relation to step width.
+        :param step_width: Step width (nm) - for a continuous sweep, this is the increment for trigger out pulses (X.XXV).
+        :param cycles: Number of sweep cycles
+
+        It's difficult to source the exact manual for this old mainframe, so the numbers below are based on setting the sweep settings manually.
+        Valid sweep speeds are 0.5, 5, and 40 nm/s.
+
+        Correspondingly, the valid step widths for max wavelength resolution are likely set by the max trigger out frequency.
+        Again using the manual interface:
+            0.5 nm/s -> 0.0010 nm (1 pm)
+            5   nm/s -> 0.0010 nm (1 pm)
+            40  nm/s -> 0.0100 nm (10 pm) - I get a "sweep parameters inconsistent" error if I try to use a 1pm step width instead of 10pm.
+
+        :param power: The power to set for the sweep (mW)
+            Not sure how to implement Pmax/swp front panel functionality yet, so for now, let the user set the sweep power separately.
+        """
+
+        self.lwmain.write("WAV:SWE:CYCL %d" %cycles)  #single sweep
+        self.lwmain.write("WAV:SWE:MODE CONT") # use continuous sweep (not stepped)
+        self.lwmain.write("TRIG0:OUTP STF")  # One output trigger per step, trig when step finished
+        self.lwmain.write("WAV:SWE:SPE %.7ENM/S" % sweep_speed)  # sweep speed in nm/s
+        self.lwmain.write("WAV:SWE:STEP %.7ENM"  % step_width)
+        self.lwmain.write("WAV:SWE:STAR %.7ENM"  % sweep_start)  # Start wavelength
+        self.lwmain.write("WAV:SWE:STOP %.7ENM"  % sweep_end)  # Stop wavelength
+
+        self.set_wavelength(sweep_start)
+        self.set_laser_pow_units(1.0) # [W]
+        self.set_power(power)
+
+    # Older functions are below.
     def configure_sweep(self, init_wav, end_wav, num_wav):
         """
         Configures the laser to take a wavelength sweep
