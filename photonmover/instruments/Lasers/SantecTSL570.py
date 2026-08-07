@@ -133,7 +133,7 @@ class SantecTSL570(Instrument, TunableLaser):
 
     def set_sweep_wavelength_step(self, step):
         "step (float) [nm], 0.0001 nm is the minimum step size"
-        self.gpib.write(":WAV:SWE:STEP %.4fnm" % step)
+        self.gpib.write(":TRIG:OUTP:STEP %.4fnm" % step)
 
     def set_sweep_step_dwell(self, dwell):
         "dwell (float) [s], 0.0 to 99.9s, only 1 decimal place relevant"
